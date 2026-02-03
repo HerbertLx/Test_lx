@@ -156,7 +156,9 @@ def test_cannot_move_end():
 
 
 if __name__ == "__main__":
+    # 创建命令行参数解析器
     parser = argparse.ArgumentParser(description="2048 Gym Env demo with different agents.")
+    # 添加 agent 类型参数，可选 default（贪心）、random（随机）、human（手动控制）
     parser.add_argument(
         "--agent",
         type=str,
@@ -164,26 +166,33 @@ if __name__ == "__main__":
         default="default",
         help="选择 agent 类型：default / random / human",
     )
+    # 添加最大步数参数，仅对非 human agent 有效，默认 200
     parser.add_argument("--max_steps", type=int, default=200, help="最大步数（对非 human agent 有效）")
+    # 添加帧率参数，对应每秒渲染步数，非 human agent 有效，默认 2.0
     parser.add_argument(
         "--fps",
         type=float,
         default=2.0,
         help="渲染帧率（每秒步数，对非 human agent 有效）",
     )
+    # 添加 no_render 参数，指定非 human agent 时是否关闭渲染，默认渲染
     parser.add_argument(
         "--no_render",
         action="store_true",
         help="非 human agent 模式下关闭渲染。",
     )
 
+    # 解析命令行参数
     args = parser.parse_args()
 
     if args.agent == "human":
+        # 如果是 human agent，则用 curses 实现的手动游玩界面
         human_agent_curses(max_steps=args.max_steps)
     else:
+        # 选择 agent (default: 贪心，random: 随机)
         if args.agent == "default":
             agent = default_agent
         else:
             agent = random_agent
+        # 运行一次游戏 episode，根据传入的参数进行渲染与控制
         run_episode(agent, max_steps=args.max_steps, render=not args.no_render, fps=args.fps)
