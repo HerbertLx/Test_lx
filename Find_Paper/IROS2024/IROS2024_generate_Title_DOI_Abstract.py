@@ -5,7 +5,9 @@ import requests
 import re
 import csv
 import time
+import os
 from tqdm import tqdm
+import datetime
 
 # 代理设置
 PROXY = "http://127.0.0.1:7897"
@@ -51,72 +53,113 @@ def scrape_abstracts():
 
     # 读取CSV文件
     rows = []
-    with open(input_file, 'r', encoding='utf-8') as f:
-        reader = csv.reader(f)
-        rows = list(reader)
+    
+    # 优先从已有的摘要文件读取数据（如果存在）
+    if os.path.exists(output_file):
+        print(f"从已有文件读取数据: {output_file}")
+        with open(output_file, 'r', encoding='utf-8') as f:
+            reader = csv.reader(f)
+            rows = list(reader)
+        print(f"共 {len(rows) - 1} 篇论文，将只处理空白摘要")
+    else:
+        # 如果摘要文件不存在，从原始DOI文件读取
+        print(f"从原始文件读取数据: {input_file}")
+        with open(input_file, 'r', encoding='utf-8') as f:
+            reader = csv.reader(f)
+            rows = list(reader)
+        print(f"共需处理 {len(rows) - 1} 篇论文")
 
-    total_papers = len(rows) - 1
-    print(f"共需处理 {total_papers} 篇论文")
-    print("测试模式：只处理前20篇论文")
+    # 统计初始空摘要数量
+    initial_empty_count = 0
+    for i in range(1, len(rows)):
+        while len(rows[i]) < 3:
+            rows[i].append("")
+        abstract = rows[i][2]
+        if not (abstract and abstract.strip()):
+            initial_empty_count += 1
+    
+    print(f"初始空白摘要数量: {initial_empty_count}")
 
-    # 跳过表头，处理每一行，只处理前20篇
-    max_papers = total_papers
-    processed_papers = 0
-    total_time = 0
-
-    # 使用tqdm创建进度条
-    with tqdm(total=max_papers, desc="处理论文摘要", unit="篇") as pbar:
-        for i in range(1, max_papers + 1):
-            start_time = time.time()
-            title = rows[i][0]
-            doi = rows[i][1]
-
-            # 确保行有3列
+    # 跳过表头，处理每一行
+    processed_count = 0
+    skipped_count = 0
+    failed_count = 0
+    start_time = time.time()
+    
+    # 计算需要处理的任务数
+    total_tasks = initial_empty_count
+    
+    # 使用tqdm添加进度条
+    with tqdm(total=len(rows)-1, desc="处理进度", unit="篇") as pbar:
+        for i in range(1, len(rows)):
+            # 确保行有足够的列
             while len(rows[i]) < 3:
                 rows[i].append("")
+            
+            title = rows[i][0]
+            doi = rows[i][1]
+            abstract = rows[i][2]
 
             # 如果已经有摘要，跳过
-            if rows[i][2]:
-                print(f"  已有摘要，跳过: {title[:50]}...")
+            if abstract and abstract.strip():
+                skipped_count += 1
                 pbar.update(1)
                 continue
 
             # 提取摘要
-            abstract = extract_abstract_from_doi(doi)
+            new_abstract = extract_abstract_from_doi(doi)
 
-            if abstract:
-                rows[i][2] = abstract
-                print(f"  摘要提取成功 ({len(abstract)} 字符): {title[:50]}...")
+            if new_abstract:
+                rows[i][2] = new_abstract
+                processed_count += 1
             else:
                 rows[i][2] = ""
-                print(f"  未找到摘要: {title[:50]}...")
+                failed_count += 1
 
             # 每处理一篇就保存一次，避免数据丢失
             with open(output_file, 'w', newline='', encoding='utf-8') as f:
                 writer = csv.writer(f)
                 writer.writerows(rows)
 
-            # 计算处理时间
-            processing_time = time.time() - start_time
-            total_time += processing_time
-            processed_papers += 1
-
+            # 更新进度条
+            pbar.update(1)
+            
             # 估计剩余时间
-            if processed_papers > 0:
-                avg_time_per_paper = total_time / processed_papers
-                remaining_papers = max_papers - i
-                estimated_remaining_time = avg_time_per_paper * remaining_papers
-                pbar.set_postfix_str(f"剩余时间: {estimated_remaining_time:.2f}秒")
+            elapsed_time = time.time() - start_time
+            processed_tasks = processed_count + failed_count
+            if processed_tasks > 0:
+                avg_time_per_task = elapsed_time / processed_tasks
+                remaining_tasks = total_tasks - processed_tasks
+                remaining_time = avg_time_per_task * remaining_tasks
+                
+                # 更新进度条描述
+                eta_str = str(datetime.timedelta(seconds=int(remaining_time)))
+                pbar.set_postfix({"已处理": processed_count, "失败": failed_count, "ETA": eta_str})
 
             # 延迟避免请求过快
             time.sleep(2)
-            pbar.update(1)
 
-    print(f"\n测试完成！已处理前 {max_papers} 篇论文")
+    # 统计最终空摘要数量
+    final_empty_count = 0
+    for i in range(1, len(rows)):
+        while len(rows[i]) < 3:
+            rows[i].append("")
+        abstract = rows[i][2]
+        if not (abstract and abstract.strip()):
+            final_empty_count += 1
+
+    print(f"\n{'='*60}")
+    print("处理完成！")
+    print(f"{'='*60}")
+    print(f"总论文数: {len(rows) - 1}")
+    print(f"初始空白摘要: {initial_empty_count}")
+    print(f"最终空白摘要: {final_empty_count}")
+    print(f"成功处理: {processed_count}")
+    print(f"处理失败: {failed_count}")
+    print(f"跳过处理: {skipped_count}")
+    print(f"{'='*60}")
     print(f"结果已保存到: {output_file}")
-    print("\n要运行完整版本，请修改脚本中的 max_papers 变量，将其设置为 total_papers")
-    print("完整版本命令:")
-    print("conda activate Test_lx && python /home/cuhk/Documents/Test_lx/Find_Paper/IROS2024/IROS2024_generate_Title_DOI_Abstract.py")
+    print(f"{'='*60}")
 
 if __name__ == "__main__":
     scrape_abstracts()
