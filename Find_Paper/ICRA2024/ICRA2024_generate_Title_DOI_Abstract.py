@@ -46,8 +46,8 @@ def extract_abstract_from_doi(doi_url):
 
 def scrape_abstracts():
     """爬取所有论文的摘要"""
-    input_file = "/home/cuhk/Documents/Test_lx/Find_Paper/ICRA2024_Title_DOI_Abstract.csv"
-    output_file = "/home/cuhk/Documents/Test_lx/Find_Paper/ICRA2024_Title_DOI_Abstract.csv"
+    input_file = "/home/cuhk/Documents/Test_lx/Find_Paper/ICRA2024/ICRA2024_Title_DOI_Abstract.csv"
+    output_file = "/home/cuhk/Documents/Test_lx/Find_Paper/ICRA2024/ICRA2024_Title_DOI_Abstract.csv"
 
     # 读取CSV文件
     rows = []

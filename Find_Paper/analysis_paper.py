@@ -167,8 +167,8 @@ def batch_process_csv(input_path: str, output_path: str, api_keys: List[str], te
         df_results = pd.read_csv(output_path)
         # 清理列名中的空格
         df_results.columns = df_results.columns.str.strip()
-        if "title" not in df_results.columns:
-            print("⚠️ 警告: 输出文件缺少 'title' 列，将忽略已存在的结果。")
+        if "Title" not in df_results.columns:
+            print("⚠️ 警告: 输出文件缺少 'Title' 列，将忽略已存在的结果。")
             df_results = None
 
     # 3. 初始化最终 DataFrame
@@ -236,21 +236,28 @@ def batch_process_csv(input_path: str, output_path: str, api_keys: List[str], te
         need_process = False
         
         # 检查翻译
-        if pd.isna(row.get("标题")) or str(row.get("标题")).strip() == "":
+        title_trans = str(row.get("标题", "")).strip()
+        abstract_trans = str(row.get("摘要", "")).strip()
+        if pd.isna(row.get("标题")) or title_trans == "" or title_trans.startswith("[翻译]") or title_trans == "无":
             need_process = True
-        if pd.isna(row.get("摘要")) or str(row.get("摘要")).strip() == "":
+        if pd.isna(row.get("摘要")) or abstract_trans == "" or abstract_trans.startswith("[翻译]") or abstract_trans == "无":
             need_process = True
         
         # 检查分析
-        if pd.isna(row.get("关键词")) or str(row.get("关键词")).strip() == "":
+        keywords = str(row.get("关键词", "")).strip()
+        platform = str(row.get("平台", "")).strip()
+        methodology = str(row.get("方法", "")).strip()
+        application = str(row.get("应用场景", "")).strip()
+        summary = str(row.get("总结", "")).strip()
+        if pd.isna(row.get("关键词")) or keywords == "" or keywords == "N/A":
             need_process = True
-        if pd.isna(row.get("平台")) or str(row.get("平台")).strip() == "":
+        if pd.isna(row.get("平台")) or platform == "":
             need_process = True
-        if pd.isna(row.get("方法")) or str(row.get("方法")).strip() == "":
+        if pd.isna(row.get("方法")) or methodology == "":
             need_process = True
-        if pd.isna(row.get("应用场景")) or str(row.get("应用场景")).strip() == "":
+        if pd.isna(row.get("应用场景")) or application == "":
             need_process = True
-        if pd.isna(row.get("总结")) or str(row.get("总结")).strip() == "":
+        if pd.isna(row.get("总结")) or summary == "" or summary == "分析失败" or summary == "N/A":
             need_process = True
 
         if need_process:
@@ -284,6 +291,7 @@ def batch_process_csv(input_path: str, output_path: str, api_keys: List[str], te
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = {}
         for task in tasks_to_run:
+            print(f"\ntask = {task}\n")
             idx = task['index']
             title = task['title']
             abstract = task['abstract']
